@@ -1,1 +1,1 @@
-__~Raft in Rust~__
+`__~Raft in Rust~__`
