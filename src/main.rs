@@ -1,15 +1,15 @@
 #![feature(try_from)]
 mod raft;
-use raft::raft::*;
+use raft::core::*;
 use raft::rpc::*;
 use raft::server::listen;
 use std::thread;
 use std::time;
 
 fn main() {
-    let message = read_message(&[0x04, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]);
+    let message = read_message([0x05, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0x00, 0x00]);
 
-    print!("{:?}", message);
+    print!("message: {:?}", message);
 //    thread::spawn(|| {
 //        listen(0xff);
 //    });

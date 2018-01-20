@@ -1,9 +1,6 @@
-extern crate byteorder;
-
-use self::byteorder::*;
 use std::os::unix::net::{UnixListener, UnixStream};
 use std::path::Path;
-use raft::raft::RaftId;
+use raft::core::RaftId;
 use raft::message::*;
 use std::thread;
 use std::io::prelude::*;
@@ -12,21 +9,10 @@ use std::convert::TryFrom;
 
 pub fn call(id: RaftId, message: Vec<u8>) {}
 
-pub fn read_message(buf: &[u8; 8]) -> Message {
-    let message_type = match MessageType::try_from(buf.first().unwrap().to_owned()) {
-        Ok(T) => match T {
-            Vote => Vote
-        }
-        Err(e) => panic!(e)
-    };
-
-
-    let size = byteorder::BigEndian::read_u32(&buf[1..5].to_owned()).to_owned();
-
-    println!("{:b}", size);
-    Message {
-        message_type,
-        size
+pub fn read_message(buf: [u8; 8]) -> Message {
+    match Message::try_from(buf) {
+        Err(E) => panic!("!"),
+        Ok(Message) => Message
     }
 }
 

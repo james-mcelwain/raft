@@ -1,6 +1,6 @@
 use std::os::unix::net::{UnixListener, UnixStream};
 use std::path::Path;
-use raft::raft::RaftId;
+use raft::core::RaftId;
 use std::thread;
 use std::io::prelude::*;
 use std::fs;
