@@ -1,5 +1,3 @@
-pub type RaftId = u8;
-
 #[derive(Debug)]
 pub struct Log {
 
@@ -9,7 +7,7 @@ pub struct Log {
 #[derive(Debug)]
 pub struct Raft {
     pub term: u32,
-    pub id: RaftId,
+    pub id: u8,
     pub log: Vec<Log>
 }
 

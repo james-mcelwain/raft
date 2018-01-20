@@ -1,6 +1,5 @@
 use std::os::unix::net::{UnixListener, UnixStream};
 use std::path::Path;
-use raft::core::RaftId;
 use std::thread;
 use std::io::prelude::*;
 use std::fs;
@@ -8,11 +7,15 @@ use std::fs;
 fn handle_client(mut stream: UnixStream) {
     println!("handle_client");
     let mut buf: [u8; 16] = [0; 16];
-    stream.read(&mut buf);
+    if let Err(e) = stream.read(&mut buf) {
+        panic!("can't handle client");
+    }
+
     println!("{:x}", buf[0]);
 }
 
-pub fn listen(id: RaftId) {
+
+pub fn listen(id: u8) {
     thread::spawn(move || {
         let path_name = format!("/tmp/raft.{}.sock", id);
         let path = Path::new(&path_name);

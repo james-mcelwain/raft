@@ -1,6 +1,5 @@
 #![feature(try_from)]
 mod raft;
-use raft::core::*;
 use raft::rpc::*;
 use raft::server::listen;
 use std::thread;
