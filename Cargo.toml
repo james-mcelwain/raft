@@ -5,3 +5,4 @@ authors = ["James McELwain <jmcelwain@gmail.com>"]
 
 [dependencies]
 byteorder = "1.2.1"
+bitreader = "0.3.1"

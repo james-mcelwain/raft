@@ -3,28 +3,45 @@ use std::path::Path;
 use raft::message::*;
 use std::io::prelude::*;
 use std::convert::TryFrom;
+use std::collections::HashMap;
 
 pub fn call(id: u8, message: &[u8]) {}
 
-pub fn read_message(buf: [u8; 8]) -> Message {
-    match Message::try_from(buf) {
-        Err(e) => panic!("!"),
-        Ok(message) => message
-    }
+#[derive(Debug)]
+pub struct Rpc {
+    sockets: HashMap<u8, UnixStream>
 }
 
-pub fn connect(id: u8) {
-    let path_name = format!("/tmp/raft.{}.sock", id);
-    let path = Path::new(&path_name);
+impl Rpc {
+    pub fn new() -> Rpc {
+        Rpc {
+            sockets: HashMap::new(),
+        }
+    }
 
-    let mut stream = match UnixStream::connect(path) {
-        Err(e) => panic!("server is not running"),
-        Ok(stream) => stream,
-    };
+    pub fn read_message(buf: [u8; 8]) -> Message {
+        match Message::try_from(buf) {
+            Err(e) => panic!("!"),
+            Ok(message) => message
+        }
+    }
 
-    // Send message
+    pub fn connect(&mut self, id: u8) {
+        let path_name = format!("/tmp/raft.{}.sock", id);
+        let path = Path::new(&path_name);
 
-    if let Err(e) = stream.write(&[0xff]) {
-        panic!("couldn't write message");
+        match UnixStream::connect(path) {
+            Err(e) => panic!("server is not running"),
+            Ok(socket) => self.sockets.insert(id,socket),
+        };
+    }
+
+    pub fn call_one(&mut self, id: u8, message_buf: [u8; 8]) {
+            match self.sockets.get_mut(&id) {
+                Some(socket) => {
+                    socket.write_all(&message_buf);
+                },
+                None => {}
+            }
     }
 }

@@ -1,38 +1,58 @@
 use std::os::unix::net::{UnixListener, UnixStream};
 use std::path::Path;
+use raft::message::*;
 use std::thread;
 use std::io::prelude::*;
 use std::fs;
+use std::rc::Rc;
+use std::convert::TryFrom;
 
 fn handle_client(mut stream: UnixStream) {
     println!("handle_client");
-    let mut buf: [u8; 16] = [0; 16];
-    if let Err(e) = stream.read(&mut buf) {
-        panic!("can't handle client");
+    let mut buf: [u8; 8] = [0; 8];
+    match stream.read(&mut buf) {
+        Ok(bytes) => println!("read {:x}", bytes),
+        Err(e) => panic!("can't handle client"),
     }
 
-    println!("{:x}", buf[0]);
+    println!("{:?}", Message::try_from(buf));
 }
 
+#[derive(Debug)]
+pub struct Server {
+    id: u8,
+}
 
-pub fn listen(id: u8) {
-    thread::spawn(move || {
-        let path_name = format!("/tmp/raft.{}.sock", id);
-        let path = Path::new(&path_name);
+impl Server {
+    pub fn new(id: u8) -> Server {
+        Server {
+            id
+        }
+    }
 
-        fs::remove_file(path).unwrap();
+    pub fn listen(&self) {
+        println!("listening");
+        let id = self.id;
+        thread::spawn(move || {
+            let path_name = format!("/tmp/raft.{}.sock", id);
+            let path = Path::new(&path_name);
 
-        let socket = UnixListener::bind(path).unwrap();
+            if path.exists() {
+                fs::remove_file(path).unwrap();
+            }
 
-        for stream in socket.incoming() {
-            match stream {
-                Ok(stream) => {
-                    thread::spawn(|| handle_client(stream));
-                }
-                Err(err) => {
-                    break;
+            let socket = UnixListener::bind(path).unwrap();
+
+            for stream in socket.incoming() {
+                match stream {
+                    Ok(stream) => {
+                        thread::spawn(|| handle_client(stream));
+                    }
+                    Err(err) => {
+                        break;
+                    }
                 }
             }
-        }
-    });
+        });
+    }
 }

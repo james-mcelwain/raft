@@ -33,7 +33,7 @@ impl TryFrom<u8> for MessageType {
             1 => Ok(MessageType::Append),
             255 => Ok(MessageType::Error),
 
-            n => Err(MessageError::InvalidMessageType(n))
+            n => Err(MessageError::InvalidMessageType(n)),
         }
     }
 }
@@ -42,7 +42,7 @@ impl TryFrom<u8> for MessageType {
 pub struct Message {
     pub message_type: MessageType,
     pub flags: u8,
-    pub size: u32
+    pub size: u32,
 }
 
 impl TryFrom<[u8; 8]> for Message {
@@ -50,11 +50,7 @@ impl TryFrom<[u8; 8]> for Message {
     fn try_from(buf: [u8; 8]) -> Result<Self, Self::Error> {
         let message_byte = buf[0].to_owned();
         let message_type = match MessageType::try_from(buf.first().unwrap().to_owned()) {
-            Ok(message_type) => match message_type {
-                MessageType::Vote => MessageType::Vote,
-                MessageType::Error => MessageType::Error,
-                MessageType::Append => MessageType::Append,
-            }
+            Ok(message_type) => message_type,
             Err(e) => return Err(e)
         };
 
