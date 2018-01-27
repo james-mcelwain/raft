@@ -1,7 +1,7 @@
 extern crate byteorder;
 
 use self::byteorder::*;
-use std::convert::TryFrom;
+use std::convert::{TryFrom,TryInto};
 
 #[derive(Debug)]
 pub enum MessageType {
@@ -45,6 +45,14 @@ pub struct Message {
     pub size: u32,
 }
 
+impl TryInto<[u8; 8]> for Message {
+    type Error = MessageError;
+
+    fn try_into(self) -> Result<[u8; 8], Self::Error> {
+        Ok([0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00])
+    }
+}
+
 impl TryFrom<[u8; 8]> for Message {
     type Error = MessageError;
     fn try_from(buf: [u8; 8]) -> Result<Self, Self::Error> {
@@ -65,4 +73,3 @@ impl TryFrom<[u8; 8]> for Message {
         })
     }
 }
-

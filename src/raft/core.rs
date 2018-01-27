@@ -1,5 +1,4 @@
 use raft::message::Message;
-use raft::rpc::Rpc;
 use raft::server::Server;
 
 #[derive(Debug)]
@@ -23,7 +22,6 @@ pub struct Raft {
     pub id: u8,
     pub log: Vec<Log>,
     pub timeout: u64,
-    pub rpc: Rpc,
     pub server: Server,
 }
 
@@ -35,9 +33,12 @@ impl Raft {
             term: 0,
             log: Vec::new(),
             timeout: 750,
-            rpc: Rpc::new(),
             server: Server::new(id),
         }
+    }
+
+    pub fn init(&mut self) {
+        self.server.listen();
     }
 
     pub fn become_candidate(&mut self) {

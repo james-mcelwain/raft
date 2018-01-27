@@ -3,19 +3,21 @@ use std::path::Path;
 use raft::message::*;
 use std::thread;
 use std::io::prelude::*;
+use std::net::Shutdown;
 use std::fs;
 use std::rc::Rc;
 use std::convert::TryFrom;
 
 fn handle_client(mut stream: UnixStream) {
-    println!("handle_client");
     let mut buf: [u8; 8] = [0; 8];
-    match stream.read(&mut buf) {
-        Ok(bytes) => println!("read {:x}", bytes),
-        Err(e) => panic!("can't handle client"),
-    }
 
-    println!("{:?}", Message::try_from(buf));
+    loop {
+        match stream.read(&mut buf) {
+            Ok(size) => if size == 0 { break },
+            Err(e) => panic!("can't handle client"),
+        };
+        println!("{:?}", Message::try_from(buf));
+    }
 }
 
 #[derive(Debug)]
