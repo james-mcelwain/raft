@@ -3,10 +3,12 @@ extern crate byteorder;
 use self::byteorder::*;
 use std::convert::{TryFrom,TryInto};
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub enum MessageType {
     Vote = 0,
-    Append = 1,
+    VoteReply = 1,
+    Append = 10,
+    AppendReply = 11,
     Error = 255,
 }
 
@@ -14,7 +16,9 @@ impl From<MessageType> for u8 {
     fn from(original: MessageType) -> u8 {
         match original {
             MessageType::Vote => 0,
-            MessageType::Append => 1,
+            MessageType::VoteReply => 1,
+            MessageType::Append => 10,
+            MessageType::AppendReply => 11,
             MessageType::Error => 255,
         }
     }
@@ -38,7 +42,7 @@ impl TryFrom<u8> for MessageType {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct Message {
     pub message_type: MessageType,
     pub flags: u8,
