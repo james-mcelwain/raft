@@ -28,8 +28,8 @@ fn main() {
         println!("done!")
     });
 
-    timer.start();
-    timer.cancel();
+    let t= timer.start();
+    t.cancel();
 
     thread::sleep(std::time::Duration::from_millis(10000));
 }
