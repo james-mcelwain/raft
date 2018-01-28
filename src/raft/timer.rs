@@ -4,27 +4,42 @@ use std::thread;
 
 /// raft.Timer
 ///
-/// A simple timer.
-///
-///
+/// A simple timer that executes a callback after it expires
+/// and can be cancelled.
 
 #[derive(Debug)]
 pub struct Timer {
     timeout: Duration,
-    cancelled: Arc<Mutex<bool>>,
+    state: Arc<Mutex<TimerState>>,
     callback: fn() -> (),
 }
 
+#[derive(Debug)]
+pub enum CancellationReason {
+    Unknown
+}
+
+#[derive(Debug)]
+pub struct TimerState {
+    cancelled: bool,
+    reason: Option<CancellationReason>,
+}
 
 pub struct CancellationToken {
-    cancelled: Arc<Mutex<bool>>,
+    state: Arc<Mutex<TimerState>>
+}
+
+
+impl TimerState {
+    pub fn cancel(&mut self, reason: CancellationReason) {
+        self.cancelled = true;
+        self.reason = Some(reason);
+    }
 }
 
 impl CancellationToken {
-    pub fn cancel(&self) {
-        let cancelled = self.cancelled.clone();
-        let mut c = cancelled.lock().unwrap();
-        *c = true;
+    pub fn cancel(self, reason: CancellationReason) {
+        self.state.lock().unwrap().cancel(reason);
     }
 }
 
@@ -32,29 +47,28 @@ impl Timer {
     pub fn new(time_in_ms: u64, handler: fn() -> ()) -> Timer {
         Timer {
             timeout: Duration::from_millis(time_in_ms),
-            cancelled: Arc::new(Mutex::new(false)),
+            state: Arc::new(Mutex::new(TimerState { cancelled: false, reason: None })),
             callback: handler
         }
     }
 
     pub fn start(&self) -> CancellationToken {
         let timeout = self.timeout.clone();
-        let cancelled = self.cancelled.clone();
+        let state = Arc::clone(&self.state);
         let handler = self.callback.clone();
         thread::spawn(move || {
             thread::sleep(timeout);
-            let c = *cancelled.lock().unwrap();
+            let c = state.lock().unwrap().cancelled;
             if !c {
                 handler()
             }
         });
 
-        CancellationToken { cancelled: self.cancelled.clone() }
+        CancellationToken { state: Arc::clone(&self.state) }
     }
 
     pub fn cancel(&self) {
-        let cancelled = self.cancelled.clone();
-        let mut c = cancelled.lock().unwrap();
-        *c = true;
+        let state = self.state.clone();
+        state.lock().unwrap().cancel(CancellationReason::Unknown);
     }
 }
