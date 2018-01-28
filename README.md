@@ -1,1 +1,3 @@
-`__~Raft in Rust~__`
+# Raft in Rust
+
+This is just a toy project for learning right now!
