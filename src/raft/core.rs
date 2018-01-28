@@ -12,8 +12,8 @@ pub struct Log {
 #[derive(Debug)]
 pub enum State {
     Follower(Option<u8>),
-    Candidate(),
-    Leader(),
+    Candidate,
+    Leader,
 }
 
 #[derive(Debug)]

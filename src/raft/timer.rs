@@ -8,39 +8,15 @@ use std::thread;
 /// and can be cancelled.
 
 #[derive(Debug)]
-pub struct Timer {
-    timeout: Duration,
-    state: Arc<Mutex<TimerState>>,
-    callback: fn() -> (),
-}
-
-#[derive(Debug)]
 pub enum CancellationReason {
     Unknown
 }
 
 #[derive(Debug)]
-pub struct TimerState {
-    cancelled: bool,
-    reason: Option<CancellationReason>,
-}
-
-pub struct CancellationToken {
-    state: Arc<Mutex<TimerState>>
-}
-
-
-impl TimerState {
-    pub fn cancel(&mut self, reason: CancellationReason) {
-        self.cancelled = true;
-        self.reason = Some(reason);
-    }
-}
-
-impl CancellationToken {
-    pub fn cancel(self, reason: CancellationReason) {
-        self.state.lock().unwrap().cancel(reason);
-    }
+pub struct Timer {
+    timeout: Duration,
+    state: Arc<Mutex<TimerState>>,
+    callback: fn() -> (),
 }
 
 impl Timer {
@@ -70,5 +46,29 @@ impl Timer {
     pub fn cancel(&self) {
         let state = self.state.clone();
         state.lock().unwrap().cancel(CancellationReason::Unknown);
+    }
+}
+
+#[derive(Debug)]
+pub struct TimerState {
+    cancelled: bool,
+    reason: Option<CancellationReason>,
+}
+
+impl TimerState {
+    pub fn cancel(&mut self, reason: CancellationReason) {
+        self.cancelled = true;
+        self.reason = Some(reason);
+    }
+}
+
+#[derive(Debug)]
+pub struct CancellationToken {
+    state: Arc<Mutex<TimerState>>
+}
+
+impl CancellationToken {
+    pub fn cancel(self, reason: CancellationReason) {
+        self.state.lock().unwrap().cancel(reason);
     }
 }
