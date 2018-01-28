@@ -3,9 +3,7 @@ use std::path::Path;
 use raft::message::*;
 use std::thread;
 use std::io::prelude::*;
-use std::net::Shutdown;
 use std::fs;
-use std::rc::Rc;
 use std::convert::TryFrom;
 
 fn handle_client(mut stream: UnixStream) {
@@ -14,7 +12,7 @@ fn handle_client(mut stream: UnixStream) {
     loop {
         match stream.read(&mut buf) {
             Ok(size) => if size == 0 { break },
-            Err(e) => panic!("can't handle client"),
+            Err(e) => panic!(e),
         };
         println!("{:?}", Message::try_from(buf));
     }

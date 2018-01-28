@@ -1,12 +1,10 @@
 use std::os::unix::net::UnixStream;
-use raft::core::Raft;
 use std::path::Path;
 use raft::message::*;
 use std::io::prelude::*;
 use std::io::Error;
 use std::convert::{TryFrom, TryInto};
 use std::collections::HashMap;
-use std::net::Shutdown;
 
 // interfaces for the main rpc operations in raft
 pub trait RpcClient {
@@ -17,9 +15,9 @@ pub trait RpcClient {
 //    -->
 pub trait RpcSender {
     fn request_vote(&mut self, id: u8, last_log_idx: u64, last_log_term: u64) -> Result<(), RpcError>;
-    fn request_vote_reply(&mut self, id: u8, term: u64, vote_granted: bool) -> Result<(), RpcError> ;
-    fn append_entries(&mut self, id: u8, term: u64, prev_log_idx: u64, prev_log_term: u64, logs: Vec<u8>) -> Result<(), RpcError> ;
-    fn append_entries_reply(&mut self, id: u8, prev_log_idx: u64, entry_count: u64, applied: bool) -> Result<(), RpcError> ;
+    fn request_vote_reply(&mut self, id: u8, term: u64, vote_granted: bool) -> Result<(), RpcError>;
+    fn append_entries(&mut self, id: u8, term: u64, prev_log_idx: u64, prev_log_term: u64, logs: Vec<u8>) -> Result<(), RpcError>;
+    fn append_entries_reply(&mut self, id: u8, prev_log_idx: u64, entry_count: u64, applied: bool) -> Result<(), RpcError>;
 }
 
 //    <--
@@ -48,8 +46,8 @@ pub struct UnixSocketRpc {
 impl UnixSocketRpc {
     fn validate_message(buf: [u8; 8]) -> Result<(), RpcError> {
         match Message::try_from(buf) {
-            Ok(m) => Ok(()),
-            Err(e) => return Err(RpcError::InvalidMessage(buf))
+            Ok(_) => Ok(()),
+            Err(_) => return Err(RpcError::InvalidMessage(buf))
         }
     }
 
@@ -73,7 +71,7 @@ impl UnixSocketRpc {
         let path = Path::new(&path_name);
 
         match UnixStream::connect(path) {
-            Err(e) => Err(RpcError::UnknownHost(id)),
+            Err(_) => Err(RpcError::UnknownHost(id)),
             Ok(socket) => {
                 self.sockets.insert(id, socket);
                 self.sockets.get(&id).ok_or(RpcError::UnknownHost(id))
@@ -121,13 +119,13 @@ impl RpcSender for UnixSocketRpc {
     }
 
     fn append_entries(&mut self, id: u8, term: u64, prev_log_idx: u64, prev_log_term: u64, logs: Vec<u8>) -> Result<(), RpcError> {
-     let buf = [MessageType::Append.into(), 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00];
+        let buf = [MessageType::Append.into(), 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00];
         UnixSocketRpc::validate_message(buf)?;
         self.send_message_buf(id, &buf)
     }
 
     fn append_entries_reply(&mut self, id: u8, prev_log_idx: u64, entry_count: u64, applied: bool) -> Result<(), RpcError> {
-          let buf = [MessageType::AppendReply.into(), 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00];
+        let buf = [MessageType::AppendReply.into(), 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00];
         UnixSocketRpc::validate_message(buf)?;
         self.send_message_buf(id, &buf)
     }

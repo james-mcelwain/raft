@@ -5,7 +5,7 @@ use raft::rpc::*;
 #[derive(Debug)]
 pub struct Log {
     message: Message,
-    data: Vec<u8>
+    data: Vec<u8>,
 }
 
 
@@ -24,7 +24,7 @@ pub struct Raft {
     pub log: Vec<Log>,
     pub timeout: u64,
     pub server: Server,
-    pub rpc: UnixSocketRpc
+    pub rpc: UnixSocketRpc,
 }
 
 impl Raft {
@@ -36,7 +36,7 @@ impl Raft {
             log: Vec::new(),
             timeout: 750,
             server: Server::new(id),
-            rpc: UnixSocketRpc::new()
+            rpc: UnixSocketRpc::new(),
         }
     }
 
@@ -45,6 +45,6 @@ impl Raft {
     }
 
     pub fn become_candidate(&mut self) {
-        self.state = State::Candidate();
+        self.state = State::Candidate;
     }
 }

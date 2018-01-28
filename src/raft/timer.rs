@@ -6,7 +6,6 @@ use std::thread;
 ///
 /// A simple timer that executes a callback after it expires
 /// and can be cancelled.
-
 #[derive(Debug)]
 pub enum CancellationReason {
     Unknown
@@ -24,7 +23,7 @@ impl Timer {
         Timer {
             timeout: Duration::from_millis(time_in_ms),
             state: Arc::new(Mutex::new(TimerState { cancelled: false, reason: None })),
-            callback: handler
+            callback: handler,
         }
     }
 
@@ -44,7 +43,7 @@ impl Timer {
     }
 
     pub fn cancel(&self) {
-        let state = self.state.clone();
+        let state = Arc::clone(&self.state);
         state.lock().unwrap().cancel(CancellationReason::Unknown);
     }
 }
