@@ -2,20 +2,6 @@ use std::time::Duration;
 use std::sync::{Arc, Mutex};
 use std::thread;
 
-pub fn time(timeout: u64, cb: fn() -> ()) -> Arc<Mutex<bool>> {
-    let cancelled = Arc::new(Mutex::new(false));
-    let c = cancelled.clone();
-    let t = timeout.clone();
-    thread::spawn(move|| {
-        thread::sleep(Duration::from_millis(t));
-        let cancelled = c.lock().unwrap();
-        if !*cancelled {
-            cb()
-        }
-    });
-    cancelled
-}
-
 #[derive(Debug)]
 pub struct Timer {
     timeout: Duration,
