@@ -8,12 +8,14 @@ use std::convert::{TryFrom, TryInto};
 use std::collections::HashMap;
 use std::net::Shutdown;
 
-pub fn call(id: u8, message: &[u8]) {}
-
 // interfaces for the main rpc operations in raft
+pub trait RpcClient {
+    fn new() -> Self;
+    fn try_connect(&mut self, id: u8) -> Result<&UnixStream, RpcError>;
+}
 
 //    -->
-trait RpcSender {
+pub trait RpcSender {
     fn request_vote(&mut self, id: u8, last_log_idx: u64, last_log_term: u64) -> Result<(), RpcError>;
     fn request_vote_reply(&mut self, id: u8, term: u64, vote_granted: bool) -> Result<(), RpcError> ;
     fn append_entries(&mut self, id: u8, term: u64, prev_log_idx: u64, prev_log_term: u64, logs: Vec<u8>) -> Result<(), RpcError> ;
@@ -21,7 +23,7 @@ trait RpcSender {
 }
 
 //    <--
-trait RpcHandler {
+pub trait RpcHandler {
     fn on_request_vote(&self, id: u8, last_log_idx: u64, last_log_term: u64);
     fn on_request_vote_reply(&self, id: u8, term: u64, vote_granted: bool);
     fn on_append_entries(&self, id: u8, term: u64, prev_log_idx: u64, prev_log_term: u64, logs: Vec<u8>);
@@ -44,12 +46,6 @@ pub struct UnixSocketRpc {
 }
 
 impl UnixSocketRpc {
-    pub fn new() -> UnixSocketRpc {
-        return UnixSocketRpc {
-            sockets: HashMap::new()
-        };
-    }
-
     fn validate_message(buf: [u8; 8]) -> Result<(), RpcError> {
         match Message::try_from(buf) {
             Ok(m) => Ok(()),
@@ -68,7 +64,7 @@ impl UnixSocketRpc {
         }
     }
 
-    fn connect(&mut self, id: u8) -> Result<&UnixStream, RpcError> {
+    pub fn connect(&mut self, id: u8) -> Result<&UnixStream, RpcError> {
         if self.sockets.contains_key(&id) {
             return self.sockets.get(&id).ok_or(RpcError::UnknownHost(id));
         }
@@ -96,8 +92,17 @@ impl UnixSocketRpc {
             None => Err(RpcError::UnknownHost(id))
         }
     }
+}
 
-    pub fn try_connect(&mut self, id: u8) -> Result<&UnixStream, RpcError> {
+
+impl RpcClient for UnixSocketRpc {
+    fn new() -> UnixSocketRpc {
+        return UnixSocketRpc {
+            sockets: HashMap::new()
+        };
+    }
+
+    fn try_connect(&mut self, id: u8) -> Result<&UnixStream, RpcError> {
         self.connect(id)
     }
 }
