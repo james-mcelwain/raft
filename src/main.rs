@@ -29,11 +29,7 @@ fn main() {
     });
 
     timer.start();
-
-    {
-        let mut c = timer.cancelled.lock().unwrap();
-        *c = true;
-    }
+    timer.cancel();
 
     thread::sleep(std::time::Duration::from_millis(10000));
 }

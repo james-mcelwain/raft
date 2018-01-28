@@ -31,7 +31,9 @@ impl Timer {
         });
     }
 
-    pub fn cancelled(self) {
-
+    pub fn cancel(&self) {
+        let cancelled = self.cancelled.clone();
+        let mut c = cancelled.lock().unwrap();
+        *c = true;
     }
 }
