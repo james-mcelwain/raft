@@ -4,6 +4,7 @@ use raft::core::Raft;
 use raft::rpc::RpcSender;
 use std::thread;
 use std::time;
+use raft::timer::Timer;
 
 fn main() {
 
@@ -22,6 +23,17 @@ fn main() {
 //        raft.rpc.disconnect(1);
 //        raft.rpc.call_one(1, [0x01, 0x0A, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]);
     });
+
+    let timer = Timer::new(100, || {
+        println!("done!")
+    });
+
+    timer.start();
+
+    {
+        let mut c = timer.cancelled.lock().unwrap();
+        *c = true;
+    }
 
     thread::sleep(std::time::Duration::from_millis(10000));
 }

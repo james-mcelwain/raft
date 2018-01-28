@@ -6,3 +6,4 @@ pub mod server;
 pub mod message;
 pub mod election;
 pub mod heartbeat;
+pub mod timer;
