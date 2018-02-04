@@ -18,19 +18,24 @@ fn handle_client(mut stream: UnixStream) {
     }
 }
 
+pub trait Server {
+    fn new(id: u8) -> Self;
+    fn listen(&self);
+}
+
 #[derive(Debug)]
-pub struct Server {
+pub struct UnixSocketServer {
     id: u8,
 }
 
-impl Server {
-    pub fn new(id: u8) -> Server {
-        Server {
+impl Server for UnixSocketServer {
+    fn new(id: u8) -> UnixSocketServer {
+        UnixSocketServer {
             id
         }
     }
 
-    pub fn listen(&self) {
+    fn listen(&self) {
         println!("listening");
         let id = self.id;
         thread::spawn(move || {

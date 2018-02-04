@@ -19,9 +19,9 @@ pub struct Timer {
 }
 
 impl Timer {
-    pub fn new(time_in_ms: u64, handler: fn() -> ()) -> Timer {
+    pub fn new(timeout: Duration, handler: fn() -> ()) -> Timer {
         Timer {
-            timeout: Duration::from_millis(time_in_ms),
+            timeout,
             state: Arc::new(Mutex::new(TimerState { cancelled: false, reason: None })),
             callback: handler,
         }
@@ -30,12 +30,12 @@ impl Timer {
     pub fn start(&self) -> CancellationToken {
         let timeout = self.timeout.clone();
         let state = Arc::clone(&self.state);
-        let handler = self.callback.clone();
+        let callback = self.callback.clone();
         thread::spawn(move || {
             thread::sleep(timeout);
             let c = state.lock().unwrap().cancelled;
             if !c {
-                handler()
+                callback()
             }
         });
 
@@ -43,8 +43,7 @@ impl Timer {
     }
 
     pub fn cancel(&self) {
-        let state = Arc::clone(&self.state);
-        state.lock().unwrap().cancel(CancellationReason::Unknown);
+        &self.state.lock().unwrap().cancel(CancellationReason::Unknown);
     }
 }
 
