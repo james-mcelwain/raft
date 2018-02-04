@@ -1,10 +1,12 @@
 use std::os::unix::net::{UnixListener, UnixStream};
 use std::path::Path;
-use raft::message::*;
 use std::thread;
 use std::io::prelude::*;
 use std::fs;
 use std::convert::TryFrom;
+
+use raft::server::Server;
+use raft::message::*;
 
 fn handle_client(mut stream: UnixStream) {
     let mut buf: [u8; 8] = [0; 8];
@@ -16,11 +18,6 @@ fn handle_client(mut stream: UnixStream) {
         };
         println!("{:?}", Message::try_from(buf));
     }
-}
-
-pub trait Server {
-    fn new(id: u8) -> Self;
-    fn listen(&self);
 }
 
 #[derive(Debug)]

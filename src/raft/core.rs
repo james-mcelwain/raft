@@ -1,8 +1,10 @@
 use std::time::Duration;
 
 use raft::message::Message;
-use raft::server::*;
-use raft::rpc::*;
+use raft::server::Server;
+use raft::server::unix::UnixSocketServer;
+use raft::rpc::RpcClient;
+use raft::rpc::unix::UnixSocketRpc;
 use raft::timer::{Timer};
 
 #[derive(Debug)]
@@ -58,7 +60,7 @@ impl Raft {
     }
 
     fn schedule_election_timeout(&mut self) {
-        Timer::new(self.config.min_election_timeout, move || {
+        Timer::new(self.config.min_election_timeout, || {
             self.become_candidate();
         }).start();
     }

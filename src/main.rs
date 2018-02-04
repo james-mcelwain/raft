@@ -1,10 +1,10 @@
 #![feature(try_from)]
-
 mod raft;
+
+use std::thread;
 
 use raft::core::Raft;
 use raft::rpc::RpcSender;
-use std::thread;
 use raft::timer::{Timer, CancellationReason};
 
 fn main() {
