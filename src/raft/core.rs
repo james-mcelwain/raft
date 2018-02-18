@@ -1,4 +1,5 @@
 use std::time::Duration;
+use std::sync::{Arc,Mutex};
 
 use raft::message::Message;
 use raft::server::Server;
@@ -22,7 +23,7 @@ pub enum State {
 
 #[derive(Debug)]
 pub struct Raft {
-    state: State,
+    state: Arc<Mutex<State>>,
     term: u32,
     id: u8,
     log: Vec<Log>,
@@ -35,7 +36,7 @@ pub struct Raft {
 impl Raft {
     pub fn new(id: u8, raft_config: Option<RaftConfig>) -> Raft {
         Raft {
-            state: State::Follower(None),
+            state: Arc::new(Mutex::new(State::Follower(None))),
             id,
             term: 0,
             log: Vec::new(),
@@ -56,12 +57,14 @@ impl Raft {
 
     pub fn become_candidate(&mut self) {
         println!("[{}] becoming candidate", self.id);
-        self.state = State::Candidate;
+        let mut s = self.state.lock().unwrap();
+        *s = State::Candidate;
     }
 
     fn schedule_election_timeout(&mut self) {
-        Timer::new(self.config.min_election_timeout, || {
-            self.become_candidate();
+        Timer::new(self.config.min_election_timeout, self.state.clone(), |data| {
+            let mut state = data.lock().unwrap();
+            *state = State::Candidate;
         }).start();
     }
 }

@@ -10,7 +10,10 @@ use raft::timer::{Timer, CancellationReason};
 fn main() {
     thread::spawn(|| {
         let mut raft = Raft::new(1, None);
-        raft.init()
+        raft.init();
+        println!("{:?}", raft);
+        thread::sleep(std::time::Duration::from_millis(5000));
+        println!("{:?}", raft)
     });
 
     thread::spawn(|| {
