@@ -16,6 +16,7 @@ pub enum RaftErr {
 }
 
 /// The state of a node
+#[derive(PartialEq, Debug)]
 pub enum State {
     // Initial state of a node, prior to joining the cluster
     None,

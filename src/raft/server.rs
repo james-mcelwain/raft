@@ -155,8 +155,8 @@ impl <T: ServerIO> Server<T> {
         self.state = state;
     }
 
-    fn state(self) {
-
+    fn state(&self) -> &State {
+        &self.state
     }
 
 
@@ -243,9 +243,15 @@ impl super::server::ServerIO for NoopServer {
 
 #[cfg(test)]
 mod tests {
-
     #[test]
     fn new() {
         let server = super::Server::new(super::NoopServer {});
+    }
+
+    #[test]
+    fn set_state() {
+        let mut server = super::Server::new(super::NoopServer {});
+        server.set_state(super::State::Leader);
+        assert_eq!(&super::State::Leader, server.state());
     }
 }
