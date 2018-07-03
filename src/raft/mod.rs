@@ -1,13 +1,11 @@
-extern crate byteorder;
-
 pub mod log;
 pub mod server;
 pub mod node;
 pub mod config;
-pub mod message:
+pub mod message;
 
 /// Errors returned by actions taken by a node
-enum RaftErr {
+pub enum RaftErr {
     NotLeader,
     OneVotingChangeOnly,
     Shutdown,
@@ -18,7 +16,7 @@ enum RaftErr {
 }
 
 /// The state of a node
-enum State {
+pub enum State {
     // Initial state of a node, prior to joining the cluster
     None,
     // The node is following a leader
@@ -30,7 +28,7 @@ enum State {
 }
 
 /// Messages sent during a heartbeat
-enum LogType {
+pub enum LogType {
     Normal,
     AddNonvotingNode,
     AddNode,
@@ -39,7 +37,7 @@ enum LogType {
 }
 
 ///
-enum MembershipEvent {
+pub enum MembershipEvent {
     ADD(NodeId),
     REMOVE(NodeId)
 }

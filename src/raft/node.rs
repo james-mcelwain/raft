@@ -1,17 +1,14 @@
-#[macro_use]
-extern crate bitflags;
-
 use raft::Index;
 use raft::NodeId;
 
 bitflags! {
-    pub flags Flags: u8 {
-        NODE_VOTED_FOR_ME = 0x00,
-        NODE_VOTING = 0x01,
-        NODE_HAS_SUFFICIENT_LOG = 0x02,
-        NODE_INACTIVE = 0x03,
-        NODE_VOTING_COMMITTED = 0x04,
-        NODE_ADDITION_COMMITTED = 0x05,
+    pub struct Flags: u8 {
+        const VOTED_FOR_ME = 0x01;
+        const VOTING = 0x02;
+        const HAS_SUFFICIENT_LOG = 0x03;
+        const INACTIVE = 0x04;
+        const VOTING_COMMITTED = 0x05;
+        const ADDITION_COMMITTED = 0x06;
    }
 }
 
@@ -22,8 +19,19 @@ pub struct Node {
     pub match_idx: Index,
 }
 
+
+impl Node {
+    pub fn is_active(&self) -> bool {
+        !self.flags.contains(Flags::INACTIVE)
+    }
+
+    pub fn is_voting(&self) -> bool {
+        self.flags.contains(Flags::VOTING)
+    }
+}
+
 impl Node {
     fn new(id: NodeId) -> Node {
-        Node { id, flags: Flags::NODE_VOTING, next_idx: 1, match_idx: 0 }
+        Node { id, flags: Flags::VOTING, next_idx: 1, match_idx: 0 }
     }
 }

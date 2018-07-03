@@ -5,25 +5,25 @@ use raft::NodeId;
 use raft::Entry;
 
 /// Indicates if an entry was committed
-struct EntryResponse {
+pub struct EntryResponse {
     term: Term,
     entry_id: EntryId,
     idx: Index,
 }
 
-struct VoteRequest {
+pub struct VoteRequest {
     term: Term,
     node_id: NodeId,
     last_idx: Index,
     last_term: Term,
 }
 
-struct VoteResponse {
+pub struct VoteResponse {
     term: Term,
     granted: bool,
 }
 
-struct AppendEntriesRequest {
+pub struct AppendEntriesRequest {
     term: Term,
     previous_idx: Index,
     previous_term: Term,
@@ -32,7 +32,7 @@ struct AppendEntriesRequest {
     entries: Vec<Entry>,
 }
 
-struct AppendEntriesResponse {
+pub struct AppendEntriesResponse {
     term: Term,
     committed: bool,
     current_idx: Index,

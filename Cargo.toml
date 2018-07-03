@@ -4,4 +4,6 @@ version = "0.1.0"
 authors = ["James McELwain <jmcelwain@gmail.com>"]
 
 [dependencies]
-bitflags = "0.8.2"
+bitflags = "1.0"
+rand = "0.5.3"
+

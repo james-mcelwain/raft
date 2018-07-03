@@ -1,5 +1,4 @@
-#[macro_use]
-extern crate bitflags;
+extern crate rand;
 
 use raft::node::Flags;
 use raft::Term;
@@ -11,24 +10,19 @@ use raft::node::Node;
 use raft::Timeout;
 use raft::MembershipEvent;
 use raft::RaftErr;
+use raft::message::VoteRequest;
+use raft::message::AppendEntriesRequest;
 
-struct ServerInternal {
 
-}
-
-pub struct Server {
+pub struct Server<T: ServerIO> {
     // Public State
 
     pub id: NodeId,
 
-
-    // IO Impl
-    io: ServerIO,
-
     // Persistent State
 
     current_term: Term,
-    voted_for: NodeId,
+    voted_for: Option<NodeId>,
     log: Vec<Entry>,
 
     // Volatile State
@@ -46,84 +40,129 @@ pub struct Server {
     election_timeout_rand: Timeout,
     request_timeout: Timeout,
 
-    // slice?
-    current_leader: NodeId,
+    current_leader: Option<NodeId>,
 
     connected: bool,
     snapshot_in_progress: bool,
 
     snapshot_last_idx: Index,
     snapshot_last_term: Term,
-    voting_cfg_change_log_idx: Index,
+    voting_cfg_change_log_idx: Option<Index>,
+
+    // IO Impl
+    io: T,
 }
 
-trait ServerIO {
+pub trait ServerIO {
     fn send_vote_request(self, node: NodeId, msg: VoteRequest) -> Result<(), RaftErr>;
     fn send_append_entries_request(self, node: NodeId, msg: AppendEntriesRequest) -> Result<(), RaftErr>;
     fn send_snapshot(self, node: NodeId) -> Result<(), RaftErr>;
 
     fn node_has_sufficient_logs(self, node: NodeId) -> Result<(), RaftErr>;
 
-    fn persist_vote(self, vote: NodeId) -> Result<(), RaftErr>;
-    fn persist_term(self, term: Term, vote: NodeId) -> Result<(), RaftErr>;
+    fn persist_vote(&mut self, vote: NodeId) -> Result<(), RaftErr>;
+    fn persist_term(&mut self, term: Term, vote: Option<NodeId>) -> Result<(), RaftErr>;
 
     fn entry_event(self, entry: Entry, idx: Index) -> Result<(), RaftErr>;
     fn membership_event(self, membership: MembershipEvent) -> Result<(), RaftErr>;
 }
 
-impl Server {
-    pub fn new() {
-        let server: Server();
-
-
+impl <T: ServerIO> Server<T> {
+    pub fn new(io: T) -> Server<T> {
+        Server {
+            id: 1,
+            current_term: 0,
+            voted_for: None,
+            log: Vec::new(),
+            commit_idx: 0,
+            last_applied_idx: 0,
+            state: State::Follower,
+            timeout_elapsed: 0,
+            nodes: Vec::new(),
+            election_timeout: 0,
+            election_timeout_rand: 0,
+            request_timeout: 0,
+            current_leader: None,
+            connected: false,
+            snapshot_in_progress: false,
+            snapshot_last_idx: 0,
+            snapshot_last_term: 0,
+            voting_cfg_change_log_idx: None,
+            io,
+        }
     }
 
     // election
 
-    fn election_start(self) {
-        println!("Election starting: {} {}, term: {} current_idx: {}", self.election_timeout, self.election_timeout_rand, self.current_term, self.get_current_idx());
-        self.become_candidate()
+    fn election_start(&mut self) {
+        println!("Election starting: {} {}, term: {} current_idx: {}", self.election_timeout, self.election_timeout_rand, self.current_term, self.current_idx());
+        self.become_candidate();
     }
 
-    fn get_current_idx(self) {
-
+    fn vote(&mut self, node_id: NodeId) -> Result<(), RaftErr> {
+        self.io.persist_vote(node_id)?;
+        self.voted_for = Some(node_id);
+        Ok(())
     }
 
-    fn become_candidate(self) {
+    fn current_idx(&self) -> Index {
+        0
+    }
+
+    fn become_candidate(&mut self) -> Result<(), RaftErr> {
         println!("I am becoming a candidate");
-        self.set_current_term(self.current_term + 1)?;
-        for node in self.nodes.iter() {
-            node.flags.remove(Flags::VOTED_FOR_ME);
-        }
+        let new_term = self.current_term + 1;
+        self.set_current_term(new_term)?;
 
+        self.nodes.iter_mut()
+            .for_each(|x| x.flags.remove(Flags::VOTED_FOR_ME));
+
+        let own_id = self.id;
+        self.vote(own_id);
+        self.current_leader = None;
+        self.set_state(State::Candidate);
+
+        self.randomize_election_timeout();
+        self.timeout_elapsed = 0;
+
+        self.nodes.iter()
+            .filter(|x| x.is_active() && x.is_voting())
+            .for_each(|x| self.send_vote_request(x));
+
+        Ok(())
     }
 
-    fn set_current_term(self, term: Term)  -> Result<(), RaftErr> {
+    fn become_leader(&mut self) -> Result<(), RaftErr> {
+        Ok(())
+    }
+
+    fn set_current_term(&mut self, term: Term)  -> Result<(), RaftErr> {
         if self.current_term < term {
-            self.io.persist_term(term, -1)?;
+            self.io.persist_term(term, None)?;
             self.current_term = term;
-            self.voted_for = -1;
+            self.voted_for = None;
         }
 
         Ok(())
     }
 
-    fn randomize_election_timeout(self) {
-
+    fn randomize_election_timeout(&mut self) {
+        let jitter = rand::random::<u64>();
+        self.election_timeout_rand = self.election_timeout + jitter % self.election_timeout;
     }
 
-    fn set_state(self, state: State) {
-
+    fn set_state(&mut self, state: State) {
+        self.state = state;
     }
 
-    fn get_state(self) {
+    fn state(self) {
 
     }
 
 
     // messages
 
-    fn send_vote_request(self, node: Node) {
+    fn send_vote_request(&self, node: &Node) {
 
     }
 
@@ -149,17 +188,64 @@ impl Server {
 
     }
 
-    fn get_commit_idx(self) -> Idx {
-
+    fn commit_idx(&self) -> Index {
+        0
     }
 
-    fn delete_entry_from_idx(self, idx: Index) -> Entry {
-        assert!(self.get_commit_idx() < idx);
+    fn delete_entry_from_idx(&mut self, idx: Index) -> Entry {
+        assert!(self.commit_idx() < idx);
 
-        if idx <= self.voting_cfg_change_log_idx {
-            self.voting_cfg_change_log_idx = -1;
+        if let Some(i) = self.voting_cfg_change_log_idx {
+            if idx <= i {
+                self.voting_cfg_change_log_idx = None;
+            }
         }
 
        self.log.remove(idx)
+    }
+}
+
+struct NoopServer {}
+
+impl super::server::ServerIO for NoopServer {
+    fn send_vote_request(self, node: u8, msg: VoteRequest) -> Result<(), RaftErr> {
+        Ok(())
+    }
+
+    fn send_append_entries_request(self, node: u8, msg: AppendEntriesRequest) -> Result<(), RaftErr> {
+        Ok(())
+    }
+
+    fn send_snapshot(self, node: u8) -> Result<(), RaftErr> {
+        Ok(())
+    }
+
+    fn node_has_sufficient_logs(self, node: u8) -> Result<(), RaftErr> {
+        Ok(())
+    }
+
+    fn persist_vote(&mut self, vote: u8) -> Result<(), RaftErr> {
+        Ok(())
+    }
+
+    fn persist_term(&mut self, term: u8, vote: Option<u8>) -> Result<(), RaftErr> {
+        Ok(())
+    }
+
+    fn entry_event(self, entry: Entry, idx: usize) -> Result<(), RaftErr> {
+        Ok(())
+    }
+
+    fn membership_event(self, membership: MembershipEvent) -> Result<(), RaftErr> {
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+
+    #[test]
+    fn new() {
+        let server = super::Server::new(super::NoopServer {});
     }
 }
