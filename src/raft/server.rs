@@ -94,9 +94,11 @@ impl <T: ServerIO> Server<T> {
 
     // election
 
-    fn election_start(&mut self) {
+    fn start_election(&mut self) -> Result<(), RaftErr> {
         println!("Election starting: {} {}, term: {} current_idx: {}", self.election_timeout, self.election_timeout_rand, self.current_term, self.current_idx());
         self.become_candidate();
+
+        Ok(())
     }
 
     fn vote(&mut self, node_id: NodeId) -> Result<(), RaftErr> {
@@ -126,13 +128,91 @@ impl <T: ServerIO> Server<T> {
         self.timeout_elapsed = 0;
 
         self.nodes.iter()
-            .filter(|x| x.is_active() && x.is_voting())
+            .filter(|x| !x.is_voting())
+            .filter(|x| !x.is_active())
             .for_each(|x| self.send_vote_request(x));
 
         Ok(())
     }
 
     fn become_leader(&mut self) -> Result<(), RaftErr> {
+        println!("I am becoming the leader");
+        self.set_state(State::Leader);
+        self.timeout_elapsed = 0;
+
+        let current_idx = self.current_idx();
+        self.nodes.iter_mut()
+            .filter(|x| !x.is_active())
+            .for_each(|x| {
+                x.set_next_idx(current_idx + 1);
+                x.set_match_idx(0);
+            });
+
+        self.nodes.iter()
+            .for_each(|x| self.send_append_entries_request(x));
+
+        Ok(())
+    }
+
+    fn become_follower(&mut self) -> Result<(), RaftErr> {
+        println!("I am becoming a follower");
+
+        self.set_state(State::Follower);
+        self.randomize_election_timeout();
+        self.timeout_elapsed = 0;
+
+        Ok(())
+    }
+
+    fn is_single_node(&self) -> bool {
+        self.nodes.iter()
+            .filter(|x| !x.is_voting())
+            .count() == 1
+    }
+
+    fn node(&self) -> &Node {
+        self.nodes.iter()
+            .find(|x| x.id == self.id)
+            .unwrap()
+    }
+
+    fn get_entry(&self, idx: Index) -> Option<&Entry> {
+        self.log.get(idx)
+    }
+
+    fn is_leader(&self) -> bool {
+        self.state() == &State::Leader
+    }
+
+    fn is_snapshot_in_progress(&self) -> bool {
+        self.snapshot_in_progress
+    }
+
+    fn heartbeat(&mut self, msec_since_last_heartbeat: u64) -> Result<(), RaftErr> {
+        self.timeout_elapsed = self.timeout_elapsed + msec_since_last_heartbeat;
+
+        if self.is_single_node() && self.node().is_voting() && !self.is_leader() {
+            self.become_leader();
+        }
+
+        if self.is_leader() {
+            if self.request_timeout <= self.timeout_elapsed {
+                self.broadcast_append_entries_request();
+            }
+        } else if self.election_timeout_rand <= self.timeout_elapsed && !self.is_snapshot_in_progress() {
+            if !self.is_single_node() && self.node().is_voting() {
+                self.start_election()?;
+            }
+        }
+
+        if self.last_applied_idx < self.commit_idx() && !self.is_snapshot_in_progress() {
+            self.apply_all()?;
+        }
+
+        Ok(())
+    }
+
+    fn apply_all(&mut self) -> Result<(), RaftErr> {
         Ok(())
     }
 
@@ -166,11 +246,11 @@ impl <T: ServerIO> Server<T> {
 
     }
 
-    fn send_append_entries_request(self, node: Node) {
+    fn send_append_entries_request(&self, node: &Node) {
 
     }
 
-    fn broadcast_append_entries_request(self) {
+    fn broadcast_append_entries_request(&mut self) {
 
     }
 

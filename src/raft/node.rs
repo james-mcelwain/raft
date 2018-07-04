@@ -28,6 +28,22 @@ impl Node {
     pub fn is_voting(&self) -> bool {
         self.flags.contains(Flags::VOTING)
     }
+
+    pub fn next_idx(&self) -> &Index {
+        &self.next_idx
+    }
+
+    pub fn set_next_idx(&mut self, idx: Index) {
+        self.next_idx = idx;
+    }
+
+    pub fn match_idx(&self) -> &Index {
+        &self.match_idx
+    }
+
+    pub fn set_match_idx(&mut self, idx: Index) {
+        self.match_idx = idx;
+    }
 }
 
 impl Node {
