@@ -33,8 +33,8 @@ pub struct AppendEntriesRequest {
 }
 
 pub struct AppendEntriesResponse {
-    term: Term,
-    committed: bool,
-    current_idx: Index,
+    pub term: Term,
+    pub committed: bool,
+    pub current_idx: Index,
     first_id: Index,
 }

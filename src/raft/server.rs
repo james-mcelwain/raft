@@ -12,6 +12,8 @@ use raft::MembershipEvent;
 use raft::RaftErr;
 use raft::message::VoteRequest;
 use raft::message::AppendEntriesRequest;
+use raft::message::AppendEntriesResponse;
+use std::cmp::min;
 
 
 pub struct Server<T: ServerIO> {
@@ -58,7 +60,7 @@ pub trait ServerIO {
     fn send_append_entries_request(self, node: NodeId, msg: AppendEntriesRequest) -> Result<(), RaftErr>;
     fn send_snapshot(self, node: NodeId) -> Result<(), RaftErr>;
 
-    fn node_has_sufficient_logs(self, node: NodeId) -> Result<(), RaftErr>;
+    fn node_has_sufficient_logs(&mut self, node: NodeId) -> Result<(), RaftErr>;
 
     fn persist_vote(&mut self, vote: NodeId) -> Result<(), RaftErr>;
     fn persist_term(&mut self, term: Term, vote: Option<NodeId>) -> Result<(), RaftErr>;
@@ -231,6 +233,10 @@ impl <T: ServerIO> Server<T> {
         self.election_timeout_rand = self.election_timeout + jitter % self.election_timeout;
     }
 
+    fn is_voting_change_in_progress(&self) -> bool {
+        self.voting_cfg_change_log_idx.is_some()
+    }
+
     fn set_state(&mut self, state: State) {
         self.state = state;
     }
@@ -241,6 +247,47 @@ impl <T: ServerIO> Server<T> {
 
 
     // messages
+
+    fn accept_append_entries_response(&mut self, node: &mut Node, msg: AppendEntriesResponse) -> Result<(), RaftErr> {
+        // state machine pattern would solve this...
+        if !self.is_leader() {
+            Err(RaftErr::NotLeader)
+        }
+
+        if self.current_term < msg.term {
+            self.set_current_term(msg.term)?;
+            self.become_follower();
+            self.current_leader = None;
+            Ok(())
+        } else if self.current_leader != msg.term {
+            Ok(())
+        }
+
+        let match_idx = node.match_idx();
+
+        if msg.committed {
+            let next_idx = node.next_idx();
+            assert!(0 < next_idx);
+            assert!(match_idx <= next_idx - 1);
+            if match_idx <= next_idx - 1 {
+                Ok(())
+            }
+            if msg.current_idx < next_idx - 1 {
+                node.set_next_idx(min(msg.current_idx + 1, self.current_idx()));
+            } else {
+                node.set_next_idx(next_idx - 1);
+            }
+
+            // retry!
+            self.io.send_append_entries_request(node.id)
+        }
+
+        if !node.is_voting() && !self.is_voting_change_in_progress() && self.current_idx() <= msg.current_idx + 1 && self.io.node_has_sufficient_logs(node.id).is_ok() {
+
+        }
+
+        Ok(())
+    }
 
     fn send_vote_request(&self, node: &Node) {
 
