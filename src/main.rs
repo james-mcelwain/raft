@@ -7,23 +7,35 @@ use std::path::Path;
 use std::thread;
 use std::fs;
 use std::collections::HashMap;
+use std::sync::mpsc::{Sender, Receiver};
+use std::sync::mpsc;
+
 
 fn main() {
     println!("Start:");
-    let mut raft = Raft::new(UnixSocketIO::new(1));
-    let mut raft2 = Raft::new(UnixSocketIO::new(2));
+    let (tx, rx): (Sender<Message>, Receiver<Message>) = mpsc::channel();
+    let mut raft = Raft::new(UnixSocketIO::new(1, tx), rx);
+
+    let (tx, rx): (Sender<Message>, Receiver<Message>) = mpsc::channel();
+    let mut raft2 = Raft::new(UnixSocketIO::new(2, tx), rx);
+
     raft.listen();
     raft2.listen();
-    println!("{:?}", raft.get_state());
+
     let mut candidate = Raft::<Candidate, UnixSocketIO>::from(raft);
     candidate.request_vote(2);
+
     loop {
-        
+        match raft2.inbox.recv() {
+            Ok(msg) => { println!("OK: {:?}", msg) },
+            Err(e) => { println!("ERR: {:?}", e) },
+        };
     }
 }
 
 type NodeId = u8;
 
+#[derive(Debug)]
 pub struct VoteRequest {
     id: Uuid,
     from: NodeId,
@@ -40,6 +52,7 @@ impl VoteRequest {
     }
 }
 
+#[derive(Debug)]
 pub struct VoteResponse {
     id: Uuid,
     from: NodeId,
@@ -67,11 +80,14 @@ pub struct Raft<S: RaftState, IO: RaftIO> {
     id: NodeId,
     state: S,
     io: IO,
+    inbox: Receiver<Message>,
 }
 
+#[derive(Debug)]
 pub enum Message {
     VoteRequest(VoteRequest),
     VoteResponse(VoteResponse),
+    Debug
 }
 
 impl<S: RaftState, IO: RaftIO> Raft<S, IO> {
@@ -100,13 +116,15 @@ impl NoopIO {
 struct UnixSocketIO {
     node_id: NodeId,
     sockets: HashMap<NodeId, UnixStream>,
+    sender: Sender<Message>,
 }
 
 impl UnixSocketIO {
-    pub fn new(node_id: NodeId) -> UnixSocketIO {
+    pub fn new(node_id: NodeId, sender: Sender<Message>) -> UnixSocketIO {
         UnixSocketIO {
             node_id,
             sockets: HashMap::new(),
+            sender
         }
     }
 
@@ -131,6 +149,8 @@ impl UnixSocketIO {
 impl RaftIO for UnixSocketIO {
     fn listen(&mut self) {
         let path_name = self.socket_path(&self.node_id);
+        let tx = self.sender.clone();
+
         thread::spawn(move || {
             let path = Path::new(&path_name);
 
@@ -143,9 +163,7 @@ impl RaftIO for UnixSocketIO {
 
             for stream in socket.incoming() {
                 match stream {
-                    Ok(stream) => {
-                        thread::spawn(|| println!("WOW"));
-                    }
+                    Ok(stream) => { tx.send(Message::Debug); },
                     Err(err) => panic!("Error!")
                 }
             }
@@ -153,7 +171,7 @@ impl RaftIO for UnixSocketIO {
     }
 
     fn request_vote(&mut self, vote_request: VoteRequest) -> Result<VoteResponse, &str> {
-        print!("Requesting vote {}", vote_request.to);
+        println!("Requesting vote {}", vote_request.to);
         let mut socket = self.connect(vote_request.to).unwrap();
         socket.write_all(b"wow").unwrap();
         Ok(VoteResponse::new(vote_request, true))
@@ -191,6 +209,7 @@ impl RaftState for Leader {
         match message {
             Message::VoteRequest(_) => {}
             Message::VoteResponse(_) => {}
+            Message::Debug => {}
         }
     }
 }
@@ -207,6 +226,7 @@ impl RaftState for Candidate {
         match message {
             Message::VoteRequest(_) => {}
             Message::VoteResponse(_) => {}
+            Message::Debug => {}
         }
     }
 }
@@ -225,17 +245,19 @@ impl RaftState for Follower {
         match message {
             Message::VoteRequest(_) => {}
             Message::VoteResponse(_) => {}
+            Message::Debug => {}
         }
     }
 }
 
 // Raft starts in the Follower state
 impl<IO: RaftIO> Raft<Follower, IO> {
-    fn new(io: IO) -> Self {
+    fn new(io: IO, inbox: Receiver<Message>) -> Self {
         Raft {
             id: 1,
             io,
             state: Follower { leader_id: None, state: State::Follower },
+            inbox
         }
     }
 }
@@ -254,6 +276,7 @@ impl<IO: RaftIO> From<Raft<Follower, IO>> for Raft<Candidate, IO> {
             id: it.id,
             io: it.io,
             state: Candidate { state: State::Candidate },
+            inbox: it.inbox,
         }
     }
 }
@@ -264,16 +287,18 @@ impl<IO: RaftIO> From<Raft<Candidate, IO>> for Raft<Follower, IO> {
             id: it.id,
             io: it.io,
             state: Follower { leader_id: None, state: State::Follower },
+            inbox: it.inbox,
         }
     }
 }
 
 impl<IO: RaftIO> From<Raft<Candidate, IO>> for Raft<Leader, IO> {
-    fn from(val: Raft<Candidate, IO>) -> Raft<Leader, IO> {
+    fn from(it: Raft<Candidate, IO>) -> Raft<Leader, IO> {
         Raft {
-            id: val.id,
-            io: val.io,
+            id: it.id,
+            io: it.io,
             state: Leader { state: State::Leader },
+            inbox: it.inbox,
         }
     }
 }
@@ -284,6 +309,7 @@ impl<IO: RaftIO> From<Raft<Leader, IO>> for Raft<Follower, IO> {
             id: it.id,
             io: it.io,
             state: Follower { leader_id: None, state: State::Follower },
+            inbox: it.inbox,
         }
     }
 }
