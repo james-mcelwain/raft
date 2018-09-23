@@ -80,7 +80,6 @@ impl VoteResponse {
 
 pub trait RaftState {
     fn get_state(&self) -> &State;
-    fn handle_message(&mut self, message: Message);
 }
 
 pub struct Raft<S: RaftState, IO: RaftIO> {
@@ -174,7 +173,7 @@ impl RaftIO for UnixSocketIO {
                     Ok(mut stream) => {
                         let mut buf: [u8; 16] = [0; 16];
                         stream.read(&mut buf);
-                        println!("{:?}", buf);
+                        println!("Uuid: {:?}", Uuid::from_bytes(buf).to_string());
                         tx.send(Message::Debug);
                     },
                     Err(err) => panic!("Error!")
@@ -184,7 +183,7 @@ impl RaftIO for UnixSocketIO {
     }
 
     fn request_vote(&mut self, vote_request: VoteRequest) -> Result<VoteResponse, &str> {
-        println!("Reques1ggting vote {}", vote_request.to);
+        println!("Ask vote from {}", vote_request.to);
         let mut socket = self.connect(vote_request.to).unwrap();
         socket.write_all(vote_request.to_buf());
         Ok(VoteResponse::new(vote_request, true))
@@ -217,14 +216,6 @@ impl RaftState for Leader {
     fn get_state(&self) -> &State {
         &self.state
     }
-
-    fn handle_message(&mut self, message: Message) {
-        match message {
-            Message::VoteRequest(_) => {}
-            Message::VoteResponse(_) => {}
-            Message::Debug => {}
-        }
-    }
 }
 
 struct Candidate {
@@ -234,13 +225,6 @@ struct Candidate {
 impl RaftState for Candidate {
     fn get_state(&self) -> &State {
         &self.state
-    }
-    fn handle_message(&mut self, message: Message) {
-        match message {
-            Message::VoteRequest(_) => {}
-            Message::VoteResponse(_) => {}
-            Message::Debug => {}
-        }
     }
 }
 
@@ -252,14 +236,6 @@ struct Follower {
 impl RaftState for Follower {
     fn get_state(&self) -> &State {
         &self.state
-    }
-
-    fn handle_message(&mut self, message: Message) {
-        match message {
-            Message::VoteRequest(_) => {}
-            Message::VoteResponse(_) => {}
-            Message::Debug => {}
-        }
     }
 }
 
