@@ -87,6 +87,15 @@ pub struct Raft<S: RaftState, IO: RaftIO> {
     state: S,
     io: IO,
     inbox: Receiver<Message>,
+    log: Vec<Box<[u8]>>,
+
+    // update on storage
+    current_term: u8,
+    voted_for: NodeId,
+
+    // volatile state
+    commit_index: u8,
+    last_applied: u8,
 }
 
 #[derive(Debug)]
@@ -202,7 +211,9 @@ impl RaftIO for NoopIO {
 }
 
 struct Leader {
-    state: State
+    state: State,
+    next_index: u8,
+    match_index: u8,
 }
 
 #[derive(Debug)]
@@ -246,7 +257,12 @@ impl<IO: RaftIO> Raft<Follower, IO> {
             id: 1,
             io,
             state: Follower { leader_id: None, state: State::Follower },
-            inbox
+            inbox,
+            log: Vec::new(),
+            current_term: 0,
+            voted_for: 0,
+            commit_index: 0,
+            last_applied: 0,
         }
     }
 }
@@ -266,6 +282,11 @@ impl<IO: RaftIO> From<Raft<Follower, IO>> for Raft<Candidate, IO> {
             io: it.io,
             state: Candidate { state: State::Candidate },
             inbox: it.inbox,
+            log: Vec::new(),
+            current_term: 0,
+            voted_for: 0,
+            commit_index: 0,
+            last_applied: 0,
         }
     }
 }
@@ -277,6 +298,11 @@ impl<IO: RaftIO> From<Raft<Candidate, IO>> for Raft<Follower, IO> {
             io: it.io,
             state: Follower { leader_id: None, state: State::Follower },
             inbox: it.inbox,
+            log: Vec::new(),
+            current_term: 0,
+            voted_for: 0,
+            commit_index: 0,
+            last_applied: 0,
         }
     }
 }
@@ -286,8 +312,13 @@ impl<IO: RaftIO> From<Raft<Candidate, IO>> for Raft<Leader, IO> {
         Raft {
             id: it.id,
             io: it.io,
-            state: Leader { state: State::Leader },
+            state: Leader { state: State::Leader, next_index: 0, match_index: 0 },
             inbox: it.inbox,
+            log: Vec::new(),
+            current_term: 0,
+            voted_for: 0,
+            commit_index: 0,
+            last_applied: 0,
         }
     }
 }
@@ -299,6 +330,11 @@ impl<IO: RaftIO> From<Raft<Leader, IO>> for Raft<Follower, IO> {
             io: it.io,
             state: Follower { leader_id: None, state: State::Follower },
             inbox: it.inbox,
+            log: Vec::new(),
+            current_term: 0,
+            voted_for: 0,
+            commit_index: 0,
+            last_applied: 0,
         }
     }
 }
