@@ -1,7 +1,7 @@
 extern crate uuid;
 
 use std::time::Duration;
-use std::io::{Write};
+use std::io::{Write, Read};
 use uuid::Uuid;
 use std::os::unix::net::{UnixListener, UnixStream};
 use std::path::Path;
@@ -41,6 +41,12 @@ pub struct VoteRequest {
     id: Uuid,
     from: NodeId,
     to: NodeId,
+}
+
+impl VoteRequest {
+    pub fn to_buf(&self) -> &[u8; 16]{
+        &self.id.as_bytes()
+    }
 }
 
 impl VoteRequest {
@@ -165,7 +171,10 @@ impl RaftIO for UnixSocketIO {
 
             for stream in socket.incoming() {
                 match stream {
-                    Ok(stream) => {
+                    Ok(mut stream) => {
+                        let mut buf: [u8; 16] = [0; 16];
+                        stream.read(&mut buf);
+                        println!("{:?}", buf);
                         tx.send(Message::Debug);
                     },
                     Err(err) => panic!("Error!")
@@ -175,9 +184,9 @@ impl RaftIO for UnixSocketIO {
     }
 
     fn request_vote(&mut self, vote_request: VoteRequest) -> Result<VoteResponse, &str> {
-        println!("Requesting vote {}", vote_request.to);
+        println!("Reques1ggting vote {}", vote_request.to);
         let mut socket = self.connect(vote_request.to).unwrap();
-        socket.write_all(b"wow");
+        socket.write_all(vote_request.to_buf());
         Ok(VoteResponse::new(vote_request, true))
     }
 }
