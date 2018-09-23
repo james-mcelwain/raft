@@ -1,5 +1,6 @@
 extern crate uuid;
 
+use std::time::Duration;
 use std::io::{Write};
 use uuid::Uuid;
 use std::os::unix::net::{UnixListener, UnixStream};
@@ -9,7 +10,6 @@ use std::fs;
 use std::collections::HashMap;
 use std::sync::mpsc::{Sender, Receiver};
 use std::sync::mpsc;
-
 
 fn main() {
     println!("Start:");
@@ -24,6 +24,7 @@ fn main() {
 
     let mut candidate = Raft::<Candidate, UnixSocketIO>::from(raft);
     candidate.request_vote(2);
+
 
     loop {
         match raft2.inbox.recv() {
@@ -97,6 +98,7 @@ impl<S: RaftState, IO: RaftIO> Raft<S, IO> {
 
     pub fn listen(&mut self) {
         self.io.listen();
+        thread::sleep(Duration::new(0,0));
     }
 }
 
@@ -163,7 +165,9 @@ impl RaftIO for UnixSocketIO {
 
             for stream in socket.incoming() {
                 match stream {
-                    Ok(stream) => { tx.send(Message::Debug); },
+                    Ok(stream) => {
+                        tx.send(Message::Debug);
+                    },
                     Err(err) => panic!("Error!")
                 }
             }
@@ -173,7 +177,7 @@ impl RaftIO for UnixSocketIO {
     fn request_vote(&mut self, vote_request: VoteRequest) -> Result<VoteResponse, &str> {
         println!("Requesting vote {}", vote_request.to);
         let mut socket = self.connect(vote_request.to).unwrap();
-        socket.write_all(b"wow").unwrap();
+        socket.write_all(b"wow");
         Ok(VoteResponse::new(vote_request, true))
     }
 }
